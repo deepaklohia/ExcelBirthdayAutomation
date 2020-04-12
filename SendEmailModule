@@ -1,0 +1,89 @@
+
+Private Sub Btn_SendEmail_Click()
+
+
+Dim OutApp As Object
+  Dim OutMail As Object
+  Dim RowNum As Integer
+  Dim objPPT As Object
+  Dim ppt As Object
+  Dim randomslidenumber As Integer
+  Dim Low As Double
+  Dim High As Double
+  Dim nextdays As Integer
+  
+  Application.ScreenUpdating = False
+    
+'if the emails are sent upto date
+If (DateValue(Sheet1.Range("D1").Value)) < DateValue(Sheet1.Range("B1").Value) Then
+  MsgBox "Emails upto date", vbInformation
+  ActiveWorkbook.Save
+  Exit Sub
+End If
+
+Set objPPT = CreateObject("Powerpoint.Application")
+objPPT.Visible = True
+Set ppt = objPPT.Presentations.Open(ThisWorkbook.Path & "\Birthday_Template.pptx", ReadOnly:=msoTrue)
+
+Do While VBA.DateDiff("d", VBA.DateValue(Sheet1.Range("B1").Value), (VBA.DateValue(Sheet1.Range("D1").Value) + 1)) <> 0
+    
+        For RowNum = 7 To Sheet1.Cells(Sheet1.Rows.Count, "B").End(xlUp).Row
+        
+                If VBA.Format((Sheet1.Cells(RowNum, "D").Value), "DDMM") = VBA.Format((Sheet1.Range("B1").Value), "DDMM") Then
+                
+                ' Getting Random Slides
+                    Low = 1
+                    High = ppt.Slides.Count '<<< CHANGE AS DESIRED
+                    randomslidenumber = Int(((High - Low) * Rnd() + Low)) ' Change to 1 or any slide number if you want to have a fixed greeting to be sent
+               
+                
+                 With ppt.Slides(randomslidenumber)
+                       .Shapes("EmployeeName").TextEffect.Text = WorksheetFunction.Proper(Sheet1.Cells(RowNum, "B").Value)  ' assocate name main
+                       .Shapes("BirthDate").TextEffect.Text = VBA.Format(Sheet1.Cells(RowNum, "D").Value, "DD Mmm") ' birthdate
+                       .Shapes("ProcessName").TextEffect.Text = (Sheet1.Cells(RowNum, "C").Value)       'this is process name
+                       .Export (ThisWorkbook.Path & "\slide") & ".gif", "gif"
+                  End With
+                
+                    Set OutApp = CreateObject("Outlook.Application")
+                    OutApp.Session.Logon
+                    Set OutMail = OutApp.CreateItem(0)
+                     
+                      With OutMail
+                                .SentOnBehalfOfName = Sheet1.Range("B3").Value
+                                .CC = Sheet1.Range("B4").Value
+                                .To = Sheet1.Cells(RowNum, "E").Value
+                                .Subject = "Happy Birthday" & " " & WorksheetFunction.Proper(Cells(RowNum, "B").Value)
+                                .Attachments.Add (ThisWorkbook.Path & "\slide.gif")
+                                .HTMLBody = "<html><center><img src='cid:slide.gif' height='576' width='768' /></a></center> </html>"
+                      
+                                .Display
+                                
+                              '  .send
+
+                                 ' .Display to send directly
+                     End With
+                End If
+                
+        Next RowNum
+
+        Sheet1.Range("B1").Value = Format(VBA.DateValue(Sheet1.Range("b1").Value) + 1, "dd-mmm")
+Loop
+
+ppt.Close
+objPPT.Quit
+
+Set OutMail = Nothing
+Set OutApp = Nothing
+Set ppt = Nothing
+Set objPPT = Nothing
+
+On Error Resume Next
+VBA.Kill ThisWorkbook.Path & "\slide.gif"
+ActiveWorkbook.Save
+Application.ScreenUpdating = True
+
+MsgBox "Processing Done", vbInformation
+
+
+
+End Sub
